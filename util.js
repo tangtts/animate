@@ -8,6 +8,7 @@ let preload = (imgs) => {
 
     const load = (src) => {
       let img = new Image()
+
       const checkIfFinished = () => {
         count++
         if (count === length) {
@@ -20,6 +21,9 @@ let preload = (imgs) => {
 
       img.src = src
     }
+
+
+
     imgs.forEach(load)
   })
 }

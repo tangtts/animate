@@ -5,9 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="never" />
     <title>FLIP demo</title>
-    <link rel="stylesheet" href="./style.css">
+    <link rel="stylesheet" href="./style.css" />
   </head>
+  <style>
+    .box {
+      width: 100px;
+      height: 100px;
+      background: red;
+      transform: translateY(200px);
+      position: absolute;
+    }
+
+    .totes-at-the-end {
+      transform: translateY(0);
+      background: green;
+    }
+  </style>
+
   <body>
+    <div class="box"></div>
+    <button>点击</button>
+
     <div id="app" v-cloak>
       <div class="action">
         <button @click="add">
@@ -18,18 +36,73 @@
         <button @click="reset">重置</button>
       </div>
       <div v-if="loading" class="loading">正在加载图片……</div>
+
       <div v-else class="wrap">
         <div class="img-wrap" v-for="src in imgs" :key="src">
           <img ref="imgs" class="img" :src="src" />
         </div>
       </div>
     </div>
-    <script src="./web-animation-polyfill.js"></script>
+    <!-- <script src="./web-animation-polyfill.js"></script> -->
     <script src="./vue.js"></script>
     <script src="./util.js"></script>
     <script src="./mock.js"></script>
     <script>
-      let initialGetSister = getSisterGenerator()
+      const box = document.querySelector(".box");
+
+      // Get the first position.
+      var first = box.getBoundingClientRect();
+
+      // Move it to the end.
+      box.classList.add("totes-at-the-end");
+
+      // Get the last position.
+      var last = box.getBoundingClientRect();
+
+      // Invert.
+      var invert = first.top - last.top;
+      // Go from the inverted position to last.
+      var player = box.animate(
+        [
+          {
+            transform: `translateY(${invert}px)`,
+            opacity: 0,
+            background: "red",
+          },
+          { transform: "translateY(0)", opacity: 1, background: "green" },
+        ],
+        {
+          duration: 3000,
+          easing: "cubic-bezier(0,0,0.32,1)",
+        }
+      );
+
+      // Do any tidy up at the end
+      // of the animation.
+      player.addEventListener("finish", function () {
+        console.log("end");
+      });
+
+      //
+
+      const button = document.querySelector("button");
+      // var animate = box.animate(
+      //   [
+      //     {
+      //       transform: `translate(-200px, 0px)`,
+      //     },
+      //     { transform: "translate(0, 0)" },
+      //   ],
+      //   {
+      //     duration: 300,
+      //     easing: "steps(4, end)",
+      //   }
+      // );
+      // animate.pause();
+      button.onclick = function () {
+        animate.play();
+      };
+      let initialGetSister = getSisterGenerator();
       new Vue({
         el: "#app",
         data() {
@@ -42,82 +115,106 @@
             imgsLoaded: false,
             leftImgIndexes: [],
             rightImgIndexes: [],
-          }
+          };
         },
         async created() {
-          this.loading = true
-          const imgs = this.getSister()
-          await preload(imgs)
-          this.imgs = imgs
-          this.loading = false
+          return;
+          this.loading = true;
+          const imgs = this.getSister();
+          await preload(imgs);
+          this.imgs = imgs;
+          this.loading = false;
         },
         methods: {
           async add() {
             if (this.adding) {
-              return
+              return;
             }
 
-            this.adding = true
-            const newData = this.getSister()
-            await preload(newData)
-            this.adding = false
+            this.adding = true;
+            const newData = this.getSister();
+            await preload(newData);
+            this.adding = false;
 
             this.scheduleAnimation(() => {
-              this.imgs = newData.concat(this.imgs)
-            })
+              this.imgs = newData.concat(this.imgs);
+            });
           },
           shuffle() {
             this.scheduleAnimation(() => {
-              this.imgs = shuffle(this.imgs)
-            })
+              this.imgs = shuffle(this.imgs);
+            });
           },
+          // 原理 DOM 状态（位置信息）改变了，而浏览器还没渲染。
+          // Vue 内部会把本次 DOM 更新的渲染函数先放到 microTask队列中，此时的队列是[changeDOM]。
+          // 调用了 nextTick(callback) 后，这个callback函数也会被追加到队列中，此时的队列是 [changeDOM, callback]。
+
           scheduleAnimation(update) {
             // 获取旧图片的位置
-            const prevImgs = this.$refs.imgs.slice()
-            const prevSrcRectMap = createSrcRectMap(prevImgs)
+            const prevImgs = this.$refs.imgs.slice();
+
+            const prevSrcRectMap = createSrcRectMap(prevImgs);
+            // {
+            //   https://pic1.zhimg.com/v2-8d3dd83f3a419964687a028de653f8d8_r.jpg: {left: 1084.5, top: 54, img: img.img}
+            // }
+
             // 更新数据
-            update()
+            update();
+
             // DOM更新后
             this.$nextTick(() => {
-              const currentSrcRectMap = createSrcRectMap(prevImgs)
-              Object.keys(prevSrcRectMap).forEach((src) => {
-                const currentRect = currentSrcRectMap[src]
-                const prevRect = prevSrcRectMap[src]
+              // 一直操作的是原来存在的 图片，对于新加的 图片只是简单的 unshift 到后面
+              const currentSrcRectMap = createSrcRectMap(prevImgs);
 
+              /*
+                  元素没变 key值没变， left 值变了，已经是最新的 DOM了
+                  https://pic1.zhimg.com/v2-8d3dd83f3a419964687a028de653f8d8_r.jpg: {left: 959.5, top: 274, img: img.img}
+              **/
+
+              Object.keys(prevSrcRectMap).forEach((src) => {
+                const currentRect = currentSrcRectMap[src];
+
+                const prevRect = prevSrcRectMap[src];
+
+                /*
+              尺寸已经变化 img: img.img
+                left: 709.5
+                top: 54
+              */
                 const invert = {
                   left: prevRect.left - currentRect.left,
                   top: prevRect.top - currentRect.top,
-                }
+                };
 
                 const keyframes = [
                   {
                     transform: `translate(${invert.left}px, ${invert.top}px)`,
                   },
                   { transform: "translate(0, 0)" },
-                ]
+                ];
                 const options = {
                   duration: 300,
                   easing: "cubic-bezier(0,0,0.32,1)",
-                }
+                };
 
-                const animation = currentRect.img.animate(keyframes, options)
-              })
-            })
+                const animation = currentRect.img.animate(keyframes, options);
+              });
+            });
           },
           reset() {
-            this.getSister = getSisterGenerator()
-            this.imgs = this.getSister()
+            this.getSister = getSisterGenerator();
+            this.imgs = this.getSister();
           },
         },
-      })
+      });
 
       function createSrcRectMap(imgs) {
         return imgs.reduce((prev, img) => {
-          const rect = img.getBoundingClientRect()
-          const { left, top } = rect
-          prev[img.src] = { left, top, img }
-          return prev
-        }, {})
+          const rect = img.getBoundingClientRect();
+          const { left, top } = rect;
+          prev[img.src] = { left, top, img };
+          return prev;
+        }, {});
       }
     </script>
   </body>
