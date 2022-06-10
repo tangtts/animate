@@ -40,6 +40,7 @@
       <div v-else class="wrap">
         <div class="img-wrap" v-for="src in imgs" :key="src">
           <img ref="imgs" class="img" :src="src" />
+          <button @click="deleteItem(src)" style="width: 50px">删除</button>
         </div>
       </div>
     </div>
@@ -54,7 +55,6 @@
       var first = box.getBoundingClientRect();
 
       // Move it to the end.
-      box.classList.add("totes-at-the-end");
 
       // Get the last position.
       var last = box.getBoundingClientRect();
@@ -76,6 +76,7 @@
           easing: "cubic-bezier(0,0,0.32,1)",
         }
       );
+      player.pause();
 
       // Do any tidy up at the end
       // of the animation.
@@ -98,7 +99,7 @@
       //     easing: "steps(4, end)",
       //   }
       // );
-      // animate.pause();
+
       button.onclick = function () {
         animate.play();
       };
@@ -118,7 +119,6 @@
           };
         },
         async created() {
-          return;
           this.loading = true;
           const imgs = this.getSister();
           await preload(imgs);
@@ -143,6 +143,12 @@
           shuffle() {
             this.scheduleAnimation(() => {
               this.imgs = shuffle(this.imgs);
+            });
+          },
+
+          deleteItem(i) {
+            this.scheduleAnimation(() => {
+              this.imgs = this.imgs.filter((img) => i != img);
             });
           },
           // 原理 DOM 状态（位置信息）改变了，而浏览器还没渲染。
